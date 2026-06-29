@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: bottleneck-springboot
+
+  datasource:
+    url: jdbc:h2:mem:bottleneckdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    # Turn OFF Open Session In View. This forces lazy loading to happen inside
+    # the @Transactional method, which is the correct, explicit pattern AND
+    # keeps the N+1 demo honest.
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        # Required so the SQL statement counter (Hibernate Statistics) works.
+        generate_statistics: true
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+logging:
+  level:
+    # Show every SQL statement Hibernate runs. During the demo you will literally
+    # watch the slow endpoint fire ~51 queries scroll by.
+    org.hibernate.SQL: DEBUG
+
+server:
+  port: 8080
