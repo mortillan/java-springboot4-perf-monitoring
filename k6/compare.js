@@ -7,10 +7,12 @@ import { Trend } from 'k6/metrics';
 // Pick ONE endpoint per run with the TARGET env var, then compare the
 // http_req_duration p95/p99 between a "slow" run and its "fast" twin.
 //
-//   k6 run k6/compare.js                          # default: slow-sales
-//   k6 run -e TARGET=fast-sales   k6/compare.js
-//   k6 run -e TARGET=slow-authors k6/compare.js
-//   k6 run -e TARGET=fast-authors k6/compare.js
+//   k6 run k6/compare.js                            # default: slow-sales
+//   k6 run -e TARGET=fast-sales     k6/compare.js
+//   k6 run -e TARGET=slow-authors   k6/compare.js
+//   k6 run -e TARGET=fast-authors   k6/compare.js
+//   k6 run -e TARGET=slow-upstream  k6/compare.js
+//   k6 run -e TARGET=fast-upstream  k6/compare.js
 //
 // Tune load:   -e PEAK_VUS=50
 // Point elsewhere: -e BASE_URL=http://localhost:8080
