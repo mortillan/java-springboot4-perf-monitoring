@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  * auto-instrumented CLIENT span, so the Grafana Cloud trace makes it obvious:
  *
  *   - slow endpoint: the `call-upstream` span (and its nested HTTP client span
- *     to httpbin /delay/N) dwarfs everything else.
+ *     to the upstream /delay/N) dwarfs everything else.
  *   - fast endpoint: the same steps, but the upstream call is tiny.
  *
  * The takeaway: our application code is fast. The trace shows we're simply
@@ -43,7 +43,7 @@ public class UpstreamController {
 
     /**
      * THE BOTTLENECK (slow upstream).
-     * Calls httpbin's /delay/{seconds} endpoint, which sleeps server-side before
+     * Calls the upstream /delay/{seconds} endpoint, which sleeps server-side before
      * responding. Our code does nothing slow -- we're just waiting.
      */
     @GetMapping("/slow/upstream")
@@ -56,7 +56,7 @@ public class UpstreamController {
 
     /**
      * THE FAST PATH.
-     * Calls httpbin's /get endpoint, which returns immediately. Same three
+     * Calls the upstream /get endpoint, which returns immediately. Same three
      * steps, but now the upstream call is a sliver in the trace.
      */
     @GetMapping("/fast/upstream")

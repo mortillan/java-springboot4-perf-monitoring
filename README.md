@@ -29,8 +29,8 @@ upstream HTTP dependency. Your job: use the traces to prove where the time goes.
 
 | Endpoint | What it does |
 | --- | --- |
-| `GET /api/slow/upstream` | Calls a slow upstream API (`httpbin.org/delay/3`) |
-| `GET /api/fast/upstream` | Calls a fast upstream API (`httpbin.org/get`) |
+| `GET /api/slow/upstream` | Calls a slow upstream API (`postman-echo.com/delay/3`) |
+| `GET /api/fast/upstream` | Calls a fast upstream API (`postman-echo.com/get`) |
 
 > See [Lab Exercise — find the upstream bottleneck](#lab-exercise--find-the-upstream-bottleneck)
 > below for the questions to answer.
@@ -355,8 +355,8 @@ Demos 1 & 2 are guided. This one is **yours to investigate** — it's the hands-
 Q&A portion of the session. Two endpoints call an external upstream API:
 
 ```bash
-curl -i http://localhost:8080/api/slow/upstream   # calls httpbin.org/delay/3
-curl -i http://localhost:8080/api/fast/upstream    # calls httpbin.org/get
+curl -i http://localhost:8080/api/slow/upstream   # calls postman-echo.com/delay/3
+curl -i http://localhost:8080/api/fast/upstream    # calls postman-echo.com/get
 ```
 
 The application's own code does almost nothing in both cases — yet one is dramatically
@@ -381,7 +381,7 @@ open the traces in Grafana Cloud, and answer:
 <summary><b>Facilitator notes (the answer)</b></summary>
 
 - The `call-upstream` span dominates, and nested under it is an **auto-instrumented HTTP
-  CLIENT span** to `httpbin.org` — the OTel agent traces outbound calls just like JDBC.
+  CLIENT span** to the upstream (`postman-echo.com`) — the OTel agent traces outbound calls just like JDBC.
   `validate-request` and `process-response` are slivers next to it.
 - No JDBC spans appear at all — unlike Demos 1 & 2, the DB isn't in the picture. The time
   is spent *waiting on the network / upstream service*.
@@ -393,8 +393,10 @@ open the traces in Grafana Cloud, and answer:
   `RestClient` from `UpstreamClientConfig`. The slow path hits `/delay/{n}` (default 3s,
   override with `--demo.upstream.slow-delay-seconds=N`); the fast path hits `/get`. The
   upstream base URL is overridable with `--demo.upstream.base-url=...`.
-- Heads-up: under sustained k6 load, `httpbin.org` may rate-limit. Lower the load with
-  `-e PEAK_VUS=5`, or point `demo.upstream.base-url` at a local stub.
+- Heads-up: these call a public echo service (`postman-echo.com` by default). Under
+  sustained k6 load any public service may rate-limit or 503. Lower the load with
+  `-e PEAK_VUS=5`, or point `demo.upstream.base-url` at a local stub. (We defaulted off
+  `httpbin.org` because it returned 503s on repeated calls.)
 
 </details>
 
