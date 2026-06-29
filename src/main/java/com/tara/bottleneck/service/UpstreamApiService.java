@@ -63,6 +63,24 @@ public class UpstreamApiService {
         return raw;
     }
 
+    /**
+     * Simulates a CPU-bound workload: a tight loop that just increments a counter.
+     *
+     * The counter is a LOCAL variable, so it is never shared across requests/HTTP
+     * connections -- every call gets its own, and there's no contention or shared
+     * state. This keeps the work purely CPU-bound (no locking, no I/O), which in
+     * the trace shows up as a `cpu-burn` span that grows under concurrency as
+     * threads compete for cores.
+     */
+    @WithSpan("cpu-burn")
+    public long burnCpu(long iterations) {
+        long counter = 0;
+        for (long i = 0; i < iterations; i++) {
+            counter += i;
+        }
+        return counter;
+    }
+
     private UpstreamCallResponse toResponse(String path, Map<String, Object> body, long elapsedMs) {
         String url = body == null ? null : String.valueOf(body.get("url"));
         String origin = body == null ? null : String.valueOf(body.get("origin"));

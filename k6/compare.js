@@ -26,6 +26,8 @@ const ENDPOINTS = {
   'fast-authors': '/api/fast/authors',          // JOIN FETCH: 1 query
   'slow-sales': '/api/slow-query/sales-ranking', // correlated subquery: 1 expensive query
   'fast-sales': '/api/fast-query/sales-ranking', // window function: 1 cheap query
+  'slow-upstream': '/api/slow/upstream',         // slow upstream HTTP dependency (httpbin /delay)
+  'fast-upstream': '/api/fast/upstream',         // fast upstream HTTP call (httpbin /get)
 };
 
 const TARGET = __ENV.TARGET || 'slow-sales';

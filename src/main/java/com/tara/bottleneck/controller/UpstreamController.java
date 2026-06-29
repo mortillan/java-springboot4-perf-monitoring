@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
  * Demonstrates an UPSTREAM API bottleneck: the work isn't slow in our code, it's
  * slow because we're waiting on a downstream HTTP dependency.
  *
- * Each request runs the same three steps (validate -> call upstream -> process).
+ * Each request runs the same steps (validate -> cpu-burn -> call upstream -> process).
+ * The `cpu-burn` step is a per-request, CPU-bound loop (a local counter, never
+ * shared across connections) so the trace also shows on-CPU time alongside the
+ * time spent waiting on the upstream.
  * With the OpenTelemetry agent attached, the outbound HTTP call is its own
  * auto-instrumented CLIENT span, so the Grafana Cloud trace makes it obvious:
  *
@@ -28,11 +31,14 @@ public class UpstreamController {
 
     private final UpstreamApiService upstreamApiService;
     private final int slowDelaySeconds;
+    private final long cpuIterations;
 
     public UpstreamController(UpstreamApiService upstreamApiService,
-                              @Value("${demo.upstream.slow-delay-seconds:3}") int slowDelaySeconds) {
+                              @Value("${demo.upstream.slow-delay-seconds:3}") int slowDelaySeconds,
+                              @Value("${demo.upstream.cpu-iterations:50000000}") long cpuIterations) {
         this.upstreamApiService = upstreamApiService;
         this.slowDelaySeconds = slowDelaySeconds;
+        this.cpuIterations = cpuIterations;
     }
 
     /**
@@ -43,6 +49,7 @@ public class UpstreamController {
     @GetMapping("/slow/upstream")
     public UpstreamCallResponse upstreamSlow() {
         upstreamApiService.validateRequest();
+        upstreamApiService.burnCpu(cpuIterations);
         UpstreamCallResponse raw = upstreamApiService.callUpstream("/delay/" + slowDelaySeconds);
         return upstreamApiService.processResponse(raw);
     }

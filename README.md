@@ -21,6 +21,20 @@ headers), *stress* it (k6 load test), and *see* it (distributed traces in Grafan
 | `GET /api/slow-query/sales-ranking` | Correlated subquery — re-scans the whole table per row (O(N²)) | **1** query, ~**2,200 ms** |
 | `GET /api/fast-query/sales-ranking` | `RANK() OVER (...)` window function (O(N log N)) | **1** query, ~**50 ms** |
 
+**Lab Exercise — an upstream API bottleneck (for Q&A / hands-on):**
+
+Unlike Demos 1 & 2, these two endpoints are **not** walked through below — they're left
+as a **lab exercise**. The bottleneck here lives *outside* the database, in a slow
+upstream HTTP dependency. Your job: use the traces to prove where the time goes.
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /api/slow/upstream` | Calls a slow upstream API (`httpbin.org/delay/3`) |
+| `GET /api/fast/upstream` | Calls a fast upstream API (`httpbin.org/get`) |
+
+> See [Lab Exercise — find the upstream bottleneck](#lab-exercise--find-the-upstream-bottleneck)
+> below for the questions to answer.
+
 Every response includes headers that make the cost visible:
 
 - `X-Sql-Statements` — how many SQL statements that request executed
@@ -191,6 +205,8 @@ k6 run -e TARGET=slow-sales   k6/compare.js   # correlated subquery under load
 k6 run -e TARGET=fast-sales   k6/compare.js   # window function under load
 k6 run -e TARGET=slow-authors k6/compare.js   # N+1 under load
 k6 run -e TARGET=fast-authors k6/compare.js   # JOIN FETCH under load
+k6 run -e TARGET=slow-upstream k6/compare.js  # slow upstream API under load (lab exercise)
+k6 run -e TARGET=fast-upstream k6/compare.js  # fast upstream API under load (lab exercise)
 
 # Crank the load:
 k6 run -e TARGET=slow-sales -e PEAK_VUS=50 k6/compare.js
@@ -330,6 +346,57 @@ with **p50 / p95 / p99** — broken down per route, so you can compare
 > Two complementary views for the brownbag: **Traces** answer *"where is the time inside a
 > request?"*; **Application Observability** (and **k6**) answer *"how bad does p95 get in
 > aggregate / under load?"*
+
+---
+
+## Lab Exercise — find the upstream bottleneck
+
+Demos 1 & 2 are guided. This one is **yours to investigate** — it's the hands-on
+Q&A portion of the session. Two endpoints call an external upstream API:
+
+```bash
+curl -i http://localhost:8080/api/slow/upstream   # calls httpbin.org/delay/3
+curl -i http://localhost:8080/api/fast/upstream    # calls httpbin.org/get
+```
+
+The application's own code does almost nothing in both cases — yet one is dramatically
+slower. Run them with tracing on (`./scripts/run-with-tracing.sh`), generate traffic,
+open the traces in Grafana Cloud, and answer:
+
+1. **Which span is the bottleneck?** Open a `/api/slow/upstream` trace and read the
+   waterfall. Which span is the longest bar — is it your code, or something else?
+2. **Is the database involved at all?** Compare this trace to a `/api/slow-query/sales-ranking`
+   trace. What's different about where the time goes?
+3. **What kind of span is the slow one?** What does its name / type tell you about the
+   dependency causing the delay?
+4. **Would `X-Elapsed-Ms` alone have told you the root cause?** Why is the *trace* (not
+   just the timing header) the thing that points you at the upstream API?
+5. **Under load (k6):** run `-e TARGET=slow-upstream` vs `-e TARGET=fast-upstream`. How
+   does p95 differ? What does that say about depending on a slow third party?
+6. **Bonus — how would you fix it?** If your own service is fast and the upstream is
+   slow, where does the fix live? (Think: caching, timeouts, fallbacks, calling a
+   faster/closer service — not optimizing your own code.)
+
+<details>
+<summary><b>Facilitator notes (the answer)</b></summary>
+
+- The `call-upstream` span dominates, and nested under it is an **auto-instrumented HTTP
+  CLIENT span** to `httpbin.org` — the OTel agent traces outbound calls just like JDBC.
+  `validate-request` and `process-response` are slivers next to it.
+- No JDBC spans appear at all — unlike Demos 1 & 2, the DB isn't in the picture. The time
+  is spent *waiting on the network / upstream service*.
+- The lesson: when **your** code is fast but the request is slow, the trace points
+  outward — the bottleneck is a downstream dependency, and the fix lives there (or in how
+  you call it: timeouts, retries with backoff, caching, circuit breakers, fallbacks),
+  **not** in micro-optimizing your own code.
+- Wiring: `UpstreamController` → `UpstreamApiService` (`@WithSpan` steps) →
+  `RestClient` from `UpstreamClientConfig`. The slow path hits `/delay/{n}` (default 3s,
+  override with `--demo.upstream.slow-delay-seconds=N`); the fast path hits `/get`. The
+  upstream base URL is overridable with `--demo.upstream.base-url=...`.
+- Heads-up: under sustained k6 load, `httpbin.org` may rate-limit. Lower the load with
+  `-e PEAK_VUS=5`, or point `demo.upstream.base-url` at a local stub.
+
+</details>
 
 ---
 
